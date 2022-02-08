@@ -27,7 +27,7 @@ class ChatService {
 
     fun getChats(userId: UserId): List<Chat> =
         chats[userId]?.map { chat ->
-            chat.copy(message = chat.message.sortedByDescending { it.eventDt }.take(1).toMutableList())
+            chat.copy(message = chat.message.asSequence().sortedByDescending { it.eventDt }.take(1).toMutableList())
         } ?: listOf()
 
     fun getUnreadChatsCount(userId: UserId): Int {
@@ -36,9 +36,9 @@ class ChatService {
 
     fun getChat(userId: UserId, chatId: Long, messageId: Long, messageCount: Int): List<Message> {
         val chat = chats[userId]?.firstOrNull { it.id == chatId } ?: return listOf()
-        val messages = chat.message.sortedBy { it.id }
+        val messages = chat.message.asSequence().sortedBy { it.id }
         val indexMessage = messages.indexOfFirst { it.id == messageId }
-        val result = messages.subList(indexMessage, indexMessage + messageCount)
+        val result = messages.toList().subList(indexMessage, indexMessage + messageCount)
         result.onEach { message ->
             chat.message.first { message.id == it.id }.apply {
                 this.view = true
@@ -59,9 +59,9 @@ class ChatService {
             chats.put(from, mutableListOf())
         }
 
-        val chat = findedFromChats?.firstOrNull { it.to == to }
+        val chat = findedFromChats?.asSequence()?.firstOrNull { it.to == to }
             ?: Chat(
-                id = findedFromChats?.maxByOrNull { it.id }?.id?.plus(1) ?: 1,
+                id = findedFromChats?.asSequence()?.maxByOrNull { it.id }?.id?.plus(1) ?: 1,
                 createdDt = LocalDateTime.now(),
                 to = to,
                 from = from
@@ -75,8 +75,8 @@ class ChatService {
             chats.put(to, mutableListOf())
         }
 
-        val toChat = findedToChats?.firstOrNull { it.from == from } ?: Chat(
-            id = findedToChats?.maxByOrNull { it.id }?.id?.plus(1) ?: 1,
+        val toChat = findedToChats?.asSequence()?.firstOrNull { it.from == from } ?: Chat(
+            id = findedToChats?.asSequence()?.maxByOrNull { it.id }?.id?.plus(1) ?: 1,
             createdDt = LocalDateTime.now(),
             to = from,
             from = to
@@ -85,7 +85,7 @@ class ChatService {
         }
 
         val toMessage = Message(
-            id = chat.message.maxByOrNull { it.id }?.id?.plus(1) ?: 1,
+            id = chat.message?.asSequence().maxByOrNull { it.id }?.id?.plus(1) ?: 1,
             to = to,
             from = from,
             message = text,
@@ -108,7 +108,7 @@ class ChatService {
 
     fun deleteMessage(userId: UserId, chatId: Long, messageId: Long) {
         val chat = checkNotNull(chats[userId]?.firstOrNull { chat -> chat.id == chatId }) { "Chat is not found" }
-        val messages = chat.message.sortedBy { it.id }.toMutableList()
+        val messages = chat.message.asSequence().sortedBy { it.id }.toMutableList()
         messages.removeIf { it.id == messageId }
         if (messages.size == 0) {
             chats[userId]?.removeIf { it.id == chatId }
